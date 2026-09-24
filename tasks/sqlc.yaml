@@ -1,0 +1,36 @@
+# sqlc generates the package store from the schema, which is the sum of the
+# migrations, and the queries: sqlc generate. CI checks that the code is
+# up to date with sqlc diff.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: store/migrations
+    queries: store/queries
+    gen:
+      go:
+        package: store
+        out: store
+        sql_package: pgx/v5
+        # A nullable column is a pointer, rather than a type of pgtype.
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type:
+              import: uuid
+              type: UUID
+          - db_type: uuid
+            nullable: true
+            go_type:
+              import: uuid
+              type: UUID
+              pointer: true
+          - db_type: timestamptz
+            go_type:
+              import: time
+              type: Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              import: time
+              type: Time
+              pointer: true
