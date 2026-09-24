@@ -2,9 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
+//guide:statuses
 export const STATUSES = ['todo', 'doing', 'done'] as const;
 export type Status = (typeof STATUSES)[number];
+//guide:end
 
+//guide:create-task-dto
 export class CreateTaskDto {
   @ApiProperty({ description: 'What to do.' })
   @IsString()
@@ -22,6 +25,7 @@ export class CreateTaskDto {
   @IsDate()
   due_at?: Date;
 }
+//guide:end
 
 export class ListTasksQuery {
   @ApiPropertyOptional({ enum: STATUSES, description: 'Only the tasks of the status, if set.' })

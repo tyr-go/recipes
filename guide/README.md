@@ -11,6 +11,7 @@ The snippets are the code of both services, which CI builds: [guide_test.go](gui
 | A module, `@Module` | A package; `main` wires them, without a container |
 | A controller: `@Post()`, `@Param()`, `@Body()` | The contract: `tyr.Define`, with `rest.Route` |
 | A DTO with class-validator | A request type with `validate` tags, and a `Validate` method for the rest |
+| `@IsIn(STATUSES)` and `@ApiProperty({ enum: STATUSES })` | An enum type, which lists its values with a method, `EnumValues` |
 | A service, `@Injectable()` | A struct whose methods are the handlers: plain functions of a request |
 | The query builder of Knex | SQL, from which sqlc generates Go |
 | `knex.transaction(...)` | `db.InTx(ctx, ...)` |
@@ -99,6 +100,71 @@ func (r CreateProjectReq) Validate() error {
 ```
 
 The caller isn't a parameter of the route: it's in the context of the call, where the middleware put it. The `Location` of the response is a field of the result, `ProjectCreated`, with `header:"Location"`, rather than a call on the response.
+
+## Enums
+
+NestJS lists the statuses of a task in an array, and each field that has one says so twice, to class-validator with `@IsIn`, and to Swagger with `@ApiProperty({ enum })`:
+
+<!-- guide:nest:statuses -->
+```ts
+export const STATUSES = ['todo', 'doing', 'done'] as const;
+export type Status = (typeof STATUSES)[number];
+```
+
+<!-- guide:nest:create-task-dto -->
+```ts
+export class CreateTaskDto {
+  @ApiProperty({ description: 'What to do.' })
+  @IsString()
+  @Length(1, 200)
+  title: string;
+
+  @ApiPropertyOptional({ enum: STATUSES, description: 'todo if not set.' })
+  @IsOptional()
+  @IsIn(STATUSES)
+  status?: Status;
+
+  @ApiPropertyOptional({ description: 'When the task is due.' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  due_at?: Date;
+}
+```
+
+In tyr, the type lists its values once, with a method, `EnumValues`:
+
+<!-- guide:go:status -->
+```go
+// Status is where a task is: an enum, whose values the API checks in
+// requests and results and the documents list.
+type Status string
+
+// The statuses of a task.
+const (
+	StatusTodo  Status = "todo"
+	StatusDoing Status = "doing"
+	StatusDone  Status = "done"
+)
+
+// EnumValues lists the statuses, as tyr.Enum has it.
+func (Status) EnumValues() []Status { return []Status{StatusTodo, StatusDoing, StatusDone} }
+```
+
+The API checks every value of the type wherever it is, in requests and in results, and the documents describe the type once, so a TypeScript client generated from them gets a union, `"todo" | "doing" | "done"`. A field of a request that holds the zero value of its type, `""`, isn't set, which is how the status of a new task may be left out:
+
+<!-- guide:go:create-task-req -->
+```go
+// CreateTaskReq is a request to create a task in a project of the caller.
+type CreateTaskReq struct {
+	ProjectID uuid.UUID  `json:"project_id" path:"project_id" validate:"required" doc:"The id of the project."`
+	Title     string     `json:"title" validate:"required,max=200" doc:"What to do."`
+	Status    Status     `json:"status,omitzero" doc:"Where the task is: todo if not set."`
+	DueAt     *time.Time `json:"due_at,omitzero" doc:"When the task is due."`
+}
+```
+
+A request with another status gets 400, `must be one of: todo, doing, done`, at the field. A result must have a status in every such field that it writes: one outside the list is a bug of the server, an internal error whose log says where the value is.
 
 ## The service
 
@@ -243,7 +309,7 @@ func (s *Service) ListTasks(ctx context.Context, req contract.ListTasksReq) (con
 	}
 	var status *string
 	if req.Status != "" {
-		status = &req.Status
+		status = new(string(req.Status))
 	}
 	limit := cmp.Or(req.Limit, defaultLimit)
 	rows, err := s.db.ListTasks(ctx, store.ListTasksParams{ProjectID: req.ProjectID, Status: status, After: after, Max: int32(limit + 1)})
@@ -320,7 +386,7 @@ func (s *Service) CreateTask(ctx context.Context, req contract.CreateTaskReq) (c
 			ProjectID: req.ProjectID,
 			Number:    n,
 			Title:     req.Title,
-			Status:    cmp.Or(req.Status, "todo"),
+			Status:    string(cmp.Or(req.Status, contract.StatusTodo)),
 			DueAt:     req.DueAt,
 		})
 		return err
