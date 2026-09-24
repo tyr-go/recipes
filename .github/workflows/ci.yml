@@ -69,6 +69,9 @@ jobs:
           # can't read the generic methods of Go 1.27.
           install-mode: goinstall
           working-directory: tasks
+          # The cache of v2.13.2 panics in the facts of SA4023 once comments
+          # move, as the markers of the guide do.
+          skip-cache: true
 
   tasks-client:
     runs-on: ubuntu-latest
