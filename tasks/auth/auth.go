@@ -167,6 +167,8 @@ func Require(roles ...string) tyr.OpOption {
 	}
 }
 
+//guide:auth-interceptor
+
 // Interceptor rejects the calls of the operations marked by Require that
 // lack a caller, with unauthenticated, or whose caller lacks the roles,
 // with permission_denied. It passes on the calls of other operations.
@@ -188,3 +190,5 @@ func Interceptor(ctx context.Context, op *tyr.Operation, req any, next tyr.Invok
 	}
 	return next(ctx, req)
 }
+
+//guide:end

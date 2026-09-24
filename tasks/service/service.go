@@ -40,6 +40,8 @@ func New(db *store.DB) *Service {
 	return &Service{db: db}
 }
 
+//guide:create-project
+
 // CreateProject implements contract.CreateProject.
 func (s *Service) CreateProject(ctx context.Context, req contract.CreateProjectReq) (contract.ProjectCreated, error) {
 	owner, err := ownerOf(ctx)
@@ -56,6 +58,10 @@ func (s *Service) CreateProject(ctx context.Context, req contract.CreateProjectR
 	return contract.ProjectCreated{Project: projectOf(p), Location: "/projects/" + p.ID.String()}, nil
 }
 
+//guide:end
+
+//guide:get-project
+
 // GetProject implements contract.GetProject.
 func (s *Service) GetProject(ctx context.Context, req contract.ProjectReq) (contract.Project, error) {
 	owner, err := ownerOf(ctx)
@@ -71,6 +77,8 @@ func (s *Service) GetProject(ctx context.Context, req contract.ProjectReq) (cont
 	}
 	return projectOf(p), nil
 }
+
+//guide:end
 
 // ListProjects implements contract.ListProjects.
 func (s *Service) ListProjects(ctx context.Context, req contract.ListProjectsReq) (contract.Page[contract.Project], error) {
@@ -117,6 +125,8 @@ func (s *Service) DeleteProject(ctx context.Context, req contract.ProjectReq) (s
 	return struct{}{}, nil
 }
 
+//guide:create-task
+
 // CreateTask implements contract.CreateTask.
 func (s *Service) CreateTask(ctx context.Context, req contract.CreateTaskReq) (contract.TaskCreated, error) {
 	owner, err := ownerOf(ctx)
@@ -150,6 +160,8 @@ func (s *Service) CreateTask(ctx context.Context, req contract.CreateTaskReq) (c
 	return contract.TaskCreated{Task: taskOf(task), Location: "/tasks/" + task.ID.String()}, nil
 }
 
+//guide:end
+
 // GetTask implements contract.GetTask.
 func (s *Service) GetTask(ctx context.Context, req contract.TaskReq) (contract.Task, error) {
 	owner, err := ownerOf(ctx)
@@ -165,6 +177,8 @@ func (s *Service) GetTask(ctx context.Context, req contract.TaskReq) (contract.T
 	}
 	return taskOf(t), nil
 }
+
+//guide:list-tasks
 
 // ListTasks implements contract.ListTasks.
 func (s *Service) ListTasks(ctx context.Context, req contract.ListTasksReq) (contract.Page[contract.Task], error) {
@@ -201,6 +215,8 @@ func (s *Service) ListTasks(ctx context.Context, req contract.ListTasksReq) (con
 	}
 	return page, nil
 }
+
+//guide:end
 
 // UpdateTask implements contract.UpdateTask.
 func (s *Service) UpdateTask(ctx context.Context, req contract.UpdateTaskReq) (contract.Task, error) {

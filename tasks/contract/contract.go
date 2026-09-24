@@ -24,6 +24,7 @@ import (
 
 // The operations of the service.
 var (
+	//guide:define-create-project
 	CreateProject = tyr.Define[CreateProjectReq, ProjectCreated]("projects.create",
 		rest.Route("POST /projects"), rest.Status(http.StatusCreated),
 		tyr.Summary("Create a project"),
@@ -33,6 +34,7 @@ var (
 		CreateProjectReq{Key: "WEB", Name: "Website"},
 		ProjectCreated{Project: website, Location: "/projects/" + website.ID.String()},
 	)
+	//guide:end
 
 	GetProject = tyr.Define[ProjectReq, Project]("projects.get",
 		rest.Route("GET /projects/{id}"),

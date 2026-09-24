@@ -9,6 +9,10 @@ Services built with [tyr](https://github.com/tyr-go/tyr), the way you would buil
 |---|---|
 | [tasks](tasks) | Projects and tasks on PostgreSQL, over REST and JSON-RPC: pgx and sqlc, migrations by goose, JSON Web Tokens, pages by cursors, transactions, the errors of the database as kinds of tyr, probes and a drain, OpenTelemetry, a client in TypeScript typed by the OpenAPI document, tests on a real database |
 
+## Guides
+
+- [From NestJS to tyr](guide): the recipe tasks beside its twin on NestJS and Knex, concept by concept, with the code of both, which CI builds and checks the guide against.
+
 ## Use a recipe
 
 A recipe needs Go 1.27 or later, as tyr does, and whatever its README lists, such as PostgreSQL. To start a project from one, copy its folder and give the module your path:

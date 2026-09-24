@@ -1,6 +1,6 @@
 # tasks
 
-A service of projects and their tasks on PostgreSQL, built with [tyr](https://github.com/tyr-go/tyr): one contract served over REST and JSON-RPC, and called by a typed client. Its callers authenticate with JSON Web Tokens and see their own projects only.
+A service of projects and their tasks on PostgreSQL, built with [tyr](https://github.com/tyr-go/tyr): one contract served over REST and JSON-RPC, and called by a typed client. Its callers authenticate with JSON Web Tokens and see their own projects only. Coming from NestJS? [The guide](../guide) puts it beside its twin on NestJS and Knex.
 
 ## Run it
 

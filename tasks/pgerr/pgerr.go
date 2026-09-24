@@ -35,6 +35,8 @@ import (
 // other errors, which tyr handles as errors that no mapper translates: an
 // error of the context of the call gets its kind, deadline_exceeded or
 // canceled, and the rest are internal.
+//
+//guide:pgerr-map
 func Map(err error) error {
 	switch Code(err) {
 	case pgerrcode.UniqueViolation:
@@ -56,6 +58,8 @@ func Map(err error) error {
 	}
 	return nil
 }
+
+//guide:end
 
 // Code returns the code of the error of PostgreSQL in err's chain, such as
 // [pgerrcode.UniqueViolation], or "" if there is none.

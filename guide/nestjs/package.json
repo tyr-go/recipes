@@ -1,0 +1,32 @@
+{
+  "name": "tasks-nestjs",
+  "private": true,
+  "description": "The service tasks on NestJS and Knex, for the guide from NestJS to tyr",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "start": "node dist/src/main.js",
+    "migrate": "knex migrate:latest --knexfile dist/knexfile.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.6",
+    "@nestjs/core": "^11.2.6",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.2.6",
+    "@nestjs/swagger": "^11.4.7",
+    "@nestjs/terminus": "^11.1.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "knex": "^3.3.0",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "typescript": "~5.9.3"
+  }
+}

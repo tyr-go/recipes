@@ -24,6 +24,8 @@ type ProjectCreated struct {
 	Location string `json:"-" header:"Location" doc:"The path of the project."`
 }
 
+//guide:create-project-req
+
 // CreateProjectReq is a request to create a project.
 type CreateProjectReq struct {
 	Key  string `json:"key" validate:"required,min=2,max=10" doc:"A short code of the project, of A-Z and 0-9, starting with a letter, such as WEB. The projects of a caller have keys of their own."`
@@ -40,6 +42,8 @@ func (r CreateProjectReq) Validate() error {
 	}
 	return v.Err()
 }
+
+//guide:end
 
 // ProjectReq is a request for a project of the caller, by its id.
 type ProjectReq struct {

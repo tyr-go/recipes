@@ -146,6 +146,8 @@ var info = tyr.Info{
 // document: it tells of the same challenge that REST sends with 401.
 var mountOptions = []rest.MountOption{rest.Challenge(`Bearer realm="tasks"`)}
 
+//guide:new-api
+
 // newAPI returns the API of the service: its operations, the interceptors
 // that trace them and authorize their callers, and the translation of the
 // errors of the database.
@@ -174,6 +176,10 @@ func newAPI(svc *service.Service, logger *slog.Logger) *tyr.API {
 	admin.Implement(contract.GetStats, svc.GetStats)
 	return api
 }
+
+//guide:end
+
+//guide:new-server
 
 // newServer returns the HTTP server of the service: the operations of api
 // and their documents, the middleware around them, which authenticates
@@ -225,6 +231,8 @@ func newServer(addr string, api *tyr.API, key []byte, origins []string, ready *h
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 }
+
+//guide:end
 
 // serve serves srv on ln until ctx is done, then shuts srv down
 // gracefully. First it drains: ready fails, and srv serves on for drain,
