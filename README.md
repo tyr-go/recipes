@@ -7,7 +7,7 @@ Services built with [tyr](https://github.com/tyr-go/tyr), the way you would buil
 
 | Recipe | What it shows |
 |---|---|
-| [tasks](tasks) | Projects and tasks on PostgreSQL, over REST and JSON-RPC: pgx and sqlc, migrations by goose, JSON Web Tokens, pages by cursors, transactions, the errors of the database as kinds of tyr, probes and a drain, OpenTelemetry, tests on a real database |
+| [tasks](tasks) | Projects and tasks on PostgreSQL, over REST and JSON-RPC: pgx and sqlc, migrations by goose, JSON Web Tokens, pages by cursors, transactions, the errors of the database as kinds of tyr, probes and a drain, OpenTelemetry, a client in TypeScript typed by the OpenAPI document, tests on a real database |
 
 ## Use a recipe
 

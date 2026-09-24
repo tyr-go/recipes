@@ -1,0 +1,2605 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "tasks",
+    "description": "Projects and their tasks, of the callers who create them.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List the projects of the caller",
+        "description": "Newest first, a page at a time.",
+        "operationId": "projects.list",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "How many projects to return: 20 if not set.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "examples": {
+              "the first page": {
+                "value": 2
+              }
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "The next_cursor of the page before, for the page after it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Project"
+                },
+                "examples": {
+                  "the first page": {
+                    "value": {
+                      "items": [
+                        {
+                          "id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                          "key": "WEB",
+                          "name": "Website",
+                          "created_at": "2026-09-24T09:00:00Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create a project",
+        "operationId": "projects.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "A short code of the project, of A-Z and 0-9, starting with a letter, such as WEB. The projects of a caller have keys of their own.",
+                    "minLength": 2,
+                    "maxLength": 10
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the project.",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "key",
+                  "name"
+                ]
+              },
+              "examples": {
+                "website": {
+                  "value": {
+                    "key": "WEB",
+                    "name": "Website"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "The path of the project.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "website": {
+                    "value": "/projects/01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b"
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectCreated"
+                },
+                "examples": {
+                  "website": {
+                    "value": {
+                      "id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                      "key": "WEB",
+                      "name": "Website",
+                      "created_at": "2026-09-24T09:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already Exists",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/already_exists"
+                        },
+                        "kind": {
+                          "const": "already_exists"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get a project",
+        "operationId": "projects.get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The id of the project.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "examples": {
+              "website": {
+                "value": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                },
+                "examples": {
+                  "website": {
+                    "value": {
+                      "id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                      "key": "WEB",
+                      "name": "Website",
+                      "created_at": "2026-09-24T09:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete a project",
+        "description": "A project with tasks can't be deleted: delete its tasks first.",
+        "operationId": "projects.delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The id of the project.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Failed Precondition",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/failed_precondition"
+                        },
+                        "kind": {
+                          "const": "failed_precondition"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/tasks": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "List the tasks of a project",
+        "description": "Newest first, a page at a time, of a status or of any.",
+        "operationId": "tasks.list",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "The id of the project.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "examples": {
+              "to do": {
+                "value": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b"
+              }
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only the tasks of the status, if set: todo, doing or done.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "todo",
+                "doing",
+                "done"
+              ]
+            },
+            "examples": {
+              "to do": {
+                "value": "todo"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "How many tasks to return: 20 if not set.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "The next_cursor of the page before, for the page after it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Task"
+                },
+                "examples": {
+                  "to do": {
+                    "value": {
+                      "items": [
+                        {
+                          "id": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d",
+                          "project_id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                          "number": 1,
+                          "title": "Draw a logo",
+                          "status": "todo",
+                          "due_at": "2026-10-01T18:00:00Z",
+                          "created_at": "2026-09-24T09:03:00Z",
+                          "updated_at": "2026-09-24T09:03:00Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Create a task in a project",
+        "description": "The task gets the next number of its project: 1, 2, and so on.",
+        "operationId": "tasks.create",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "The id of the project.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "examples": {
+              "a logo": {
+                "value": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "What to do.",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "todo, doing or done: todo if not set.",
+                    "enum": [
+                      "todo",
+                      "doing",
+                      "done"
+                    ]
+                  },
+                  "due_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "When the task is due."
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              },
+              "examples": {
+                "a logo": {
+                  "value": {
+                    "title": "Draw a logo",
+                    "due_at": "2026-10-01T18:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "The path of the task.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "a logo": {
+                    "value": "/tasks/01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d"
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreated"
+                },
+                "examples": {
+                  "a logo": {
+                    "value": {
+                      "id": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d",
+                      "project_id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                      "number": 1,
+                      "title": "Draw a logo",
+                      "status": "todo",
+                      "due_at": "2026-10-01T18:00:00Z",
+                      "created_at": "2026-09-24T09:03:00Z",
+                      "updated_at": "2026-09-24T09:03:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get a task",
+        "operationId": "tasks.get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The id of the task.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "examples": {
+              "a logo": {
+                "value": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                },
+                "examples": {
+                  "a logo": {
+                    "value": {
+                      "id": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d",
+                      "project_id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                      "number": 1,
+                      "title": "Draw a logo",
+                      "status": "todo",
+                      "due_at": "2026-10-01T18:00:00Z",
+                      "created_at": "2026-09-24T09:03:00Z",
+                      "updated_at": "2026-09-24T09:03:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Delete a task",
+        "operationId": "tasks.delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The id of the task.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Change a task",
+        "description": "The fields of the request change those of the task, and the fields it leaves out keep their values.",
+        "operationId": "tasks.update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The id of the task.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "examples": {
+              "done": {
+                "value": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "What to do.",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "todo, doing or done.",
+                    "enum": [
+                      "todo",
+                      "doing",
+                      "done",
+                      null
+                    ]
+                  },
+                  "due_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "When the task is due."
+                  }
+                }
+              },
+              "examples": {
+                "done": {
+                  "value": {
+                    "status": "done"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                },
+                "examples": {
+                  "done": {
+                    "value": {
+                      "id": "01997aa3-1d20-7f41-8c55-7e2d9b0a4c6d",
+                      "project_id": "01997aa0-4c80-7a3e-9d21-5b6f0c1e2a3b",
+                      "number": 1,
+                      "title": "Draw a logo",
+                      "status": "done",
+                      "due_at": "2026-10-01T18:00:00Z",
+                      "created_at": "2026-09-24T09:03:00Z",
+                      "updated_at": "2026-09-24T11:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/not_found"
+                        },
+                        "kind": {
+                          "const": "not_found"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Count the projects and tasks of all owners",
+        "operationId": "admin.stats",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                },
+                "examples": {
+                  "a day": {
+                    "value": {
+                      "projects": 12,
+                      "tasks": 340,
+                      "done": 205
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Argument",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/invalid_argument"
+                        },
+                        "kind": {
+                          "const": "invalid_argument"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "A challenge per scheme that the server accepts.",
+                "schema": {
+                  "type": "string"
+                },
+                "examples": {
+                  "1": {
+                    "value": "Bearer realm=\"tasks\""
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unauthenticated"
+                        },
+                        "kind": {
+                          "const": "unauthenticated"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission Denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/permission_denied"
+                        },
+                        "kind": {
+                          "const": "permission_denied"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/unavailable"
+                        },
+                        "kind": {
+                          "const": "unavailable"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Deadline Exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "/problems/deadline_exceeded"
+                        },
+                        "kind": {
+                          "const": "deadline_exceeded"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "kind"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error of another kind, or a problem of the HTTP request itself.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Page_Project": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "The items of the page, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "description": "The cursor of the next page; none after the last page."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Page_Task": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "The items of the page, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "description": "The cursor of the next page; none after the last page."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference",
+            "description": "The URI reference of the problem type: one per kind, or about:blank for a problem of the HTTP request itself."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the problem type."
+          },
+          "status": {
+            "type": "integer",
+            "description": "The HTTP status."
+          },
+          "detail": {
+            "type": "string",
+            "description": "The message of the error."
+          },
+          "kind": {
+            "type": "string",
+            "description": "The kind of the error. A problem of the HTTP request itself has none.",
+            "enum": [
+              "internal",
+              "invalid_argument",
+              "unauthenticated",
+              "permission_denied",
+              "not_found",
+              "already_exists",
+              "failed_precondition",
+              "resource_exhausted",
+              "deadline_exceeded",
+              "unavailable",
+              "canceled"
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "description": "The fields that failed validation, with invalid_argument.",
+            "items": {
+              "$ref": "#/components/schemas/Violation"
+            }
+          },
+          "details": {
+            "description": "The details of an error of another kind."
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ]
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the project."
+          },
+          "key": {
+            "type": "string",
+            "description": "A short code of the project, unique among the projects of its owner, such as WEB."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the project."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the project was created."
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "created_at"
+        ]
+      },
+      "ProjectCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the project."
+          },
+          "key": {
+            "type": "string",
+            "description": "A short code of the project, unique among the projects of its owner, such as WEB."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the project."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the project was created."
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "created_at"
+        ]
+      },
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "integer",
+            "description": "The number of projects."
+          },
+          "tasks": {
+            "type": "integer",
+            "description": "The number of tasks."
+          },
+          "done": {
+            "type": "integer",
+            "description": "The number of tasks done."
+          }
+        },
+        "required": [
+          "projects",
+          "tasks",
+          "done"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the task."
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the project of the task."
+          },
+          "number": {
+            "type": "integer",
+            "description": "The number of the task within its project: 1 for the first one."
+          },
+          "title": {
+            "type": "string",
+            "description": "What to do."
+          },
+          "status": {
+            "type": "string",
+            "description": "todo, doing or done."
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task is due, if it is."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task was created."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task last changed."
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "number",
+          "title",
+          "status",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "TaskCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the task."
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The id of the project of the task."
+          },
+          "number": {
+            "type": "integer",
+            "description": "The number of the task within its project: 1 for the first one."
+          },
+          "title": {
+            "type": "string",
+            "description": "What to do."
+          },
+          "status": {
+            "type": "string",
+            "description": "todo, doing or done."
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task is due, if it is."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task was created."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the task last changed."
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "number",
+          "title",
+          "status",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "Violation": {
+        "type": "object",
+        "properties": {
+          "pointer": {
+            "type": "string",
+            "description": "A JSON Pointer to the field in the JSON form of the request, such as /code."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What's wrong with the field."
+          }
+        },
+        "required": [
+          "pointer",
+          "detail"
+        ]
+      }
+    }
+  }
+}

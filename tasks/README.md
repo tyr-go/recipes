@@ -53,6 +53,8 @@ JSON-RPC serves the same operations at `POST /rpc`, by their names. Every operat
 | [pgerr](pgerr) | The errors of PostgreSQL as kinds of tyr |
 | [main.go](main.go) | The API: the operations, their groups, the interceptors and the translation of errors; the middleware, the probes and the server, which drains before it stops |
 | [telemetry.go](telemetry.go) | OpenTelemetry: the providers, and the tracer of the queries |
+| [api](api) | The OpenAPI and OpenRPC documents of the service, which clients are generated from |
+| [clients/ts](clients/ts) | A typed client in TypeScript, generated from the OpenAPI document |
 | [cmd/token](cmd/token) | A token for development |
 | [internal/dbtest](internal/dbtest) | A database of its own for each test |
 
@@ -106,6 +108,31 @@ It leaves other errors to tyr: an error of the context of the call keeps its kin
 ### The schema and the queries
 
 The migrations of [goose](https://github.com/pressly/goose) are in the binary, and `store.Migrate` takes an advisory lock of PostgreSQL, so that instances that start at once apply each migration once. After a change to the migrations or the queries, run `sqlc generate` (sqlc 1.31) and commit the code; CI checks that it is up to date with `sqlc diff`.
+
+### Clients
+
+A client in Go calls the operations of the contract with the typed client of tyr, over JSON-RPC, as the tests do; a token goes in a header, by a transport of its own, such as `bearer` of [main_test.go](main_test.go):
+
+```go
+tasks := jsonrpc.NewClient("http://tasks.internal/rpc", &http.Client{Transport: bearer{token, http.DefaultTransport}})
+page, err := tasks.Call(ctx, contract.ListTasks, contract.ListTasksReq{ProjectID: id, Status: "todo"})
+```
+
+A client in TypeScript is generated from the OpenAPI document, in [api](api): [openapi-typescript](https://openapi-ts.dev) makes its types, and [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) calls the service with them. The errors are typed by status, so the kind of an error tells a client which one it is:
+
+```ts
+const { data, error } = await client.POST("/projects", { body: { key, name } });
+if (error?.kind === "already_exists") {
+	// a 409 of projects.create: the caller has a project of the key
+}
+```
+
+[clients/ts](clients/ts) is such a client, which CI compiles, with checks of the types of the errors. The documents in `api` are those of the API: a test fails when they aren't, and CI checks that the types of the client are those of the document. After a change to the contract:
+
+```sh
+go test -run TestDocumentFiles -update .
+cd clients/ts && npm run generate
+```
 
 ### In production
 

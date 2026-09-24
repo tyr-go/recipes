@@ -69,3 +69,30 @@ jobs:
           # can't read the generic methods of Go 1.27.
           install-mode: goinstall
           working-directory: tasks
+
+  tasks-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tasks/clients/ts
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tasks/clients/ts/package-lock.json
+
+      - run: npm ci
+
+      # The Go job checks that api/openapi.json is the document of the
+      # API; this one, that the types are those of the document.
+      - name: types of the document
+        run: |
+          npm run generate
+          git diff --exit-code -- src/schema.d.ts
+
+      - name: tsc
+        run: npm run check

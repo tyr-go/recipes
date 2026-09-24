@@ -142,6 +142,10 @@ var info = tyr.Info{
 	Description: "Projects and their tasks, of the callers who create them.",
 }
 
+// mountOptions configure the routes of the service, and so its OpenAPI
+// document: it tells of the same challenge that REST sends with 401.
+var mountOptions = []rest.MountOption{rest.Challenge(`Bearer realm="tasks"`)}
+
 // newAPI returns the API of the service: its operations, the interceptors
 // that trace them and authorize their callers, and the translation of the
 // errors of the database.
@@ -178,8 +182,7 @@ func newAPI(svc *service.Service, logger *slog.Logger) *tyr.API {
 // service from browsers.
 func newServer(addr string, api *tyr.API, key []byte, origins []string, ready *health.Readiness, logger *slog.Logger) *http.Server {
 	mux := http.NewServeMux()
-	// The document tells of the same challenge that REST sends with 401.
-	routes := rest.Mount(mux, api, rest.Challenge(`Bearer realm="tasks"`))
+	routes := rest.Mount(mux, api, mountOptions...)
 	mux.Handle("GET /openapi.json", routes.OpenAPI(info))
 	mux.Handle("POST /rpc", jsonrpc.Handler(api, jsonrpc.Discover(info)))
 
