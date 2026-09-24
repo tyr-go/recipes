@@ -32,6 +32,20 @@ import (
 // test that skipped the database would pass without testing it.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
+	pool, err := pgxpool.NewWithConfig(context.Background(), Config(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close) // before the database is dropped
+	return pool
+}
+
+// Config returns the configuration of a pool of connections to a new
+// database for t, as New does, for a test that makes the pool itself, such
+// as with a tracer of its own. Close the pool in a cleanup of t, which runs
+// before the database is dropped, as cleanups run last first.
+func Config(t testing.TB) *pgxpool.Config {
+	t.Helper()
 	if os.Getenv("DATABASE_URL") == "" {
 		if os.Getenv("REQUIRE_DB") != "" {
 			t.Fatal("dbtest: REQUIRE_DB is set, but DATABASE_URL isn't")
@@ -48,20 +62,15 @@ func New(t testing.TB) *pgxpool.Pool {
 	if _, err := s.admin.Exec(ctx, "CREATE DATABASE "+ident(name)+" TEMPLATE "+ident(s.template)); err != nil {
 		t.Fatalf("dbtest: creating the database of the test: %v", err)
 	}
-	config := s.config.Copy()
-	config.ConnConfig.Database = name
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
-		pool.Close()
 		// FORCE ends the sessions the test left, if any.
 		if _, err := s.admin.Exec(ctx, "DROP DATABASE "+ident(name)+" WITH (FORCE)"); err != nil {
 			t.Errorf("dbtest: dropping the database of the test: %v", err)
 		}
 	})
-	return pool
+	config := s.config.Copy()
+	config.ConnConfig.Database = name
+	return config
 }
 
 // server is the PostgreSQL server of the tests: the configuration of

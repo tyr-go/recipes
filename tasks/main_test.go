@@ -17,23 +17,32 @@ import (
 	"github.com/tyr-go/recipes/tasks/service"
 	"github.com/tyr-go/recipes/tasks/store"
 	"github.com/tyr-go/tyr"
+	"github.com/tyr-go/tyr/health"
 	"github.com/tyr-go/tyr/jsonrpc"
 )
 
 // testKey signs the tokens of the tests.
 var testKey = []byte("the key of the tests of the tasks")
 
-// server is where the client of newServer finds the service: over the
-// network in memory of httptest, any host does.
+// server is where the client of start finds the service: over the network
+// in memory of httptest, any host does.
 const server = "http://example.com"
 
-// newServer returns a client of a server of the service, on a database of
-// its own.
-func newServer(t *testing.T) *http.Client {
+// start returns a client of a server of the service, on a database of its
+// own.
+func start(t *testing.T) *http.Client {
+	t.Helper()
+	return startOn(t, store.NewDB(dbtest.New(t)), nil)
+}
+
+// startOn returns a client of a server of the service on db, which the
+// pages of origins may call.
+func startOn(t *testing.T, db *store.DB, origins []string) *http.Client {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
-	api := newAPI(service.New(store.NewDB(dbtest.New(t))), logger)
-	return httptest.NewTestServer(t, newHandler(api, testKey, logger)).Client()
+	ready := health.NewReadiness(health.Check("db", db.Ping), health.WithLogger(logger))
+	srv := newServer("", newAPI(service.New(db), logger), testKey, origins, ready, logger)
+	return httptest.NewTestServer(t, srv.Handler).Client()
 }
 
 // caller calls the service over REST with a token, or without one if
@@ -49,9 +58,9 @@ func as(t *testing.T, client *http.Client, id string, roles ...string) caller {
 	return caller{t: t, client: client, token: auth.NewToken(testKey, auth.Caller{ID: id, Roles: roles}, time.Hour)}
 }
 
-// do sends a request with body, as JSON if it isn't empty, and returns the
-// response and its body.
-func (c caller) do(method, path, body string) (*http.Response, string) {
+// do sends a request with body, as JSON if it isn't empty, and headers,
+// names and values in turn, and returns the response and its body.
+func (c caller) do(method, path, body string, headers ...string) (*http.Response, string) {
 	c.t.Helper()
 	req, err := http.NewRequestWithContext(c.t.Context(), method, server+path, strings.NewReader(body))
 	if err != nil {
@@ -62,6 +71,9 @@ func (c caller) do(method, path, body string) (*http.Response, string) {
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	for i := 0; i+1 < len(headers); i += 2 {
+		req.Header.Set(headers[i], headers[i+1])
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -103,7 +115,7 @@ func (c caller) problem(method, path, body, problem string) {
 
 func TestProjects(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 	alice, bob := as(t, srv, "alice"), as(t, srv, "bob")
 
 	var web contract.Project
@@ -138,7 +150,7 @@ func TestProjects(t *testing.T) {
 
 func TestListProjects(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 	alice := as(t, srv, "alice")
 	var keys []string // newest first
 	for _, key := range []string{"ONE", "TWO", "THREE", "FOUR", "FIVE"} {
@@ -182,7 +194,7 @@ func TestListProjects(t *testing.T) {
 
 func TestTasks(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 	alice, bob := as(t, srv, "alice"), as(t, srv, "bob")
 	var web contract.Project
 	alice.want(201, "POST", "/projects", `{"key":"WEB","name":"Website"}`, &web)
@@ -237,7 +249,7 @@ func TestTasks(t *testing.T) {
 
 func TestAuthorization(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 
 	// No token: 401 with the challenge of the service.
 	resp, body := caller{t: t, client: srv}.do("GET", "/projects", "")
@@ -272,7 +284,7 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func TestJSONRPC(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 	token := auth.NewToken(testKey, auth.Caller{ID: "alice"}, time.Hour)
 	tasks := jsonrpc.NewClient(server+"/rpc", &http.Client{Transport: bearer{token, srv.Transport}})
 	ctx := t.Context()
@@ -309,7 +321,7 @@ func TestJSONRPC(t *testing.T) {
 
 func TestDocuments(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv := start(t)
 	anyone := caller{t: t, client: srv}
 	var openapi struct {
 		OpenAPI string         `json:"openapi"`
@@ -317,6 +329,19 @@ func TestDocuments(t *testing.T) {
 	}
 	if anyone.want(200, "GET", "/openapi.json", "", &openapi); openapi.OpenAPI != "3.1.2" || len(openapi.Paths) != 5 {
 		t.Errorf("OpenAPI %s with %d paths, want 3.1.2 with 5", openapi.OpenAPI, len(openapi.Paths))
+	}
+	// Every operation declares the errors of its group: no caller, no
+	// database, no time left.
+	var list struct {
+		Responses map[string]any `json:"responses"`
+	}
+	if data, err := json.Marshal(openapi.Paths["/projects"].(map[string]any)["get"]); err != nil || json.Unmarshal(data, &list) != nil {
+		t.Fatalf("GET /projects in the document: %v", err)
+	}
+	for _, status := range []string{"401", "503", "504"} {
+		if _, ok := list.Responses[status]; !ok {
+			t.Errorf("GET /projects has no response %s in the document", status)
+		}
 	}
 	var discover struct {
 		Result struct {

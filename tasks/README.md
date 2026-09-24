@@ -10,10 +10,10 @@ It needs PostgreSQL 17 or later, and a key of 32 bytes or more that signs its to
 docker run --rm -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:17
 export DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
 export JWT_SECRET=$(openssl rand -hex 32)
-go run . -migrate
+go run . -migrate -origin http://localhost:5173
 ```
 
-`-migrate` applies the migrations that the database lacks before serving. In another terminal, with the same `JWT_SECRET`, the command `token` issues a token, as the service's identity provider would:
+`-migrate` applies the migrations that the database lacks before serving, and `-origin`, which repeats, names an origin whose pages may call the service from browsers. In another terminal, with the same `JWT_SECRET`, the command `token` issues a token, as the service's identity provider would:
 
 ```sh
 TOKEN=$(go run ./cmd/token -sub alice)
@@ -51,7 +51,8 @@ JSON-RPC serves the same operations at `POST /rpc`, by their names. Every operat
 | [auth](auth) | Tokens: the middleware that finds out who calls, the interceptor that lets them call what they may, and the tokens of `cmd/token` |
 | [store](store) | The schema, in migrations, and the queries, in SQL, from which [sqlc](https://sqlc.dev) generates the Go code on pgx |
 | [pgerr](pgerr) | The errors of PostgreSQL as kinds of tyr |
-| [main.go](main.go) | The API: the operations, their groups, the interceptor and the translation of errors; the middleware and the server |
+| [main.go](main.go) | The API: the operations, their groups, the interceptors and the translation of errors; the middleware, the probes and the server, which drains before it stops |
+| [telemetry.go](telemetry.go) | OpenTelemetry: the providers, and the tracer of the queries |
 | [cmd/token](cmd/token) | A token for development |
 | [internal/dbtest](internal/dbtest) | A database of its own for each test |
 
@@ -106,6 +107,14 @@ It leaves other errors to tyr: an error of the context of the call keeps its kin
 
 The migrations of [goose](https://github.com/pressly/goose) are in the binary, and `store.Migrate` takes an advisory lock of PostgreSQL, so that instances that start at once apply each migration once. After a change to the migrations or the queries, run `sqlc generate` (sqlc 1.31) and commit the code; CI checks that it is up to date with `sqlc diff`.
 
+### In production
+
+- **Probes.** `/health/live` answers 200 while the process serves, and `/health/ready` 200 while the database answers a ping within a second, and 503 otherwise. They go past the middleware, on an outer mux, as balancers call them every few seconds and the access log would drown in their records.
+- **Drain.** Told to stop by SIGTERM, the service fails readiness and serves on for `-drain`, 5 seconds by default, closing connections after their responses, while the balancers take the traffic away; then it stops accepting connections and gives the requests in flight 10 seconds. A second signal stops it at once.
+- **Timeouts.** An operation has 5 seconds, by `tyr.Timeout` on the group of all of them, over REST and JSON-RPC alike; its queries end with its context, and the client gets `deadline_exceeded`. The database can stop a query of its own accord too: add `&statement_timeout=10s` to `DATABASE_URL`, and `pgerr.Map` gives such a query `deadline_exceeded` as well. The server has the timeouts of one that faces the internet: 5 seconds for the headers of a request, 10 for all of it and for the response.
+- **CORS.** The pages of the origins of `-origin` may call the service: CORS answers their preflight requests and lets them read the `Location` of a create and the request ID. There's no protection against cross-site requests, as the service reads its callers from the header `Authorization`, which a browser doesn't add to a request by itself, as it does cookies.
+- **OpenTelemetry.** With `OTEL_EXPORTER_OTLP_ENDPOINT`, such as `http://localhost:4318`, the service sends spans and metrics to a collector over OTLP, and the other variables of the SDK configure the rest, such as `OTEL_SERVICE_NAME`. The span of a request is named after its route, such as `GET /projects/{id}`, a call of JSON-RPC gets a span of its own, and each query one named after its name in sqlc, such as `GetProject`, in the trace of the request. The log records have the IDs of the trace, `trace_id` and `span_id`.
+
 ## Test it
 
 The tests run on a real PostgreSQL, which `DATABASE_URL` names. Each test gets a database of its own, a copy of a template that has the migrations, so they run in parallel:
@@ -114,4 +123,4 @@ The tests run on a real PostgreSQL, which `DATABASE_URL` names. Each test gets a
 DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable' go test ./...
 ```
 
-Without `DATABASE_URL`, the tests of the database skip. CI sets `REQUIRE_DB=1`, which makes them fail instead, so that a missing database can't pass for a green run. The tests of the service go through its whole HTTP handler, over REST and over JSON-RPC with the typed client of the contract.
+Without `DATABASE_URL`, the tests of the database skip. CI sets `REQUIRE_DB=1`, which makes them fail instead, so that a missing database can't pass for a green run. The tests of the service go through its whole HTTP handler, over REST and over JSON-RPC with the typed client of the contract, and check the probes, CORS, the drain, with the fake clock of `testing/synctest`, and the spans of a request.

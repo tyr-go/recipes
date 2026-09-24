@@ -5,7 +5,7 @@
 //
 //	export DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
 //	export JWT_SECRET=$(openssl rand -hex 32)
-//	go run . -migrate
+//	go run . -migrate -origin http://localhost:5173
 //
 //	TOKEN=$(go run ./cmd/token -sub alice)
 //	curl -i localhost:8080/projects -H "Authorization: Bearer $TOKEN" \
@@ -17,6 +17,16 @@
 //
 //	curl localhost:8080/openapi.json
 //	curl localhost:8080/rpc -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"rpc.discover","id":1}'
+//
+// Load balancers probe it past its middleware; readiness fails while the
+// database doesn't answer, and when the service is told to stop, while it
+// serves on for a while (see -drain):
+//
+//	curl localhost:8080/health/live
+//	curl localhost:8080/health/ready
+//
+// With OTEL_EXPORTER_OTLP_ENDPOINT, such as http://localhost:4318, it sends
+// traces and metrics to a collector of OpenTelemetry.
 package main
 
 import (
@@ -39,8 +49,10 @@ import (
 	"github.com/tyr-go/recipes/tasks/service"
 	"github.com/tyr-go/recipes/tasks/store"
 	"github.com/tyr-go/tyr"
+	"github.com/tyr-go/tyr/health"
 	"github.com/tyr-go/tyr/jsonrpc"
 	"github.com/tyr-go/tyr/middleware"
+	"github.com/tyr-go/tyr/oteltyr"
 	"github.com/tyr-go/tyr/rest"
 )
 
@@ -55,10 +67,17 @@ func main() {
 func run() error {
 	addr := flag.String("addr", ":8080", "the address to listen on")
 	migrate := flag.Bool("migrate", false, "apply the migrations that the database lacks before serving")
+	var origins []string
+	flag.Func("origin", "an origin whose pages may call the service, such as https://app.example.com; repeat for more", func(origin string) error {
+		origins = append(origins, origin)
+		return nil
+	})
+	drain := flag.Duration("drain", 5*time.Second, "how long to serve on, with readiness failing, once told to stop")
 	flag.Parse()
 
-	// Records get the request ID and the operation of their context.
-	logger := slog.New(tyr.NewLogHandler(slog.NewJSONHandler(os.Stderr, nil)))
+	// Records get the request ID and the operation of their context, and
+	// the IDs of its trace.
+	logger := slog.New(tyr.NewLogHandler(slog.NewJSONHandler(os.Stderr, nil), tyr.LogAttrs(oteltyr.TraceIDs)))
 	slog.SetDefault(logger)
 
 	// Secrets come from the environment: flags would show them in the
@@ -73,8 +92,27 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// A second signal stops the service at once, rather than after the
+	// drain.
+	context.AfterFunc(ctx, stop)
 
-	pool, err := pgxpool.New(ctx, url)
+	shutdownTelemetry, err := setupTelemetry(ctx)
+	if err != nil {
+		return fmt.Errorf("setting up OpenTelemetry: %w", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(ctx); err != nil {
+			logger.Error("stopping OpenTelemetry", "err", err)
+		}
+	}()
+
+	config, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return fmt.Errorf("DATABASE_URL: %w", err)
+	}
+	pool, err := newPool(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -85,33 +123,16 @@ func run() error {
 		}
 	}
 
-	api := newAPI(service.New(store.NewDB(pool)), logger)
-	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           newHandler(api, key, logger),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       time.Minute,
-		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
-	}
+	db := store.NewDB(pool)
+	api := newAPI(service.New(db), logger)
+	ready := health.NewReadiness(health.Check("db", db.Ping), health.WithLogger(logger))
+	srv := newServer(*addr, api, key, origins, ready, logger)
 	ln, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
 		return err
 	}
 	logger.Info("serving", "addr", ln.Addr().String())
-
-	errc := make(chan error, 1)
-	go func() { errc <- srv.Serve(ln) }()
-	select {
-	case err := <-errc:
-		return err
-	case <-ctx.Done():
-	}
-	// The requests in flight get 10 seconds to finish.
-	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return srv.Shutdown(shutdown)
+	return serve(ctx, srv, ln, ready, *drain)
 }
 
 // info describes the service in its documents.
@@ -121,17 +142,20 @@ var info = tyr.Info{
 	Description: "Projects and their tasks, of the callers who create them.",
 }
 
-// newAPI returns the API of the service: its operations, the interceptor
-// that authorizes their callers and the translation of the errors of the
-// database.
+// newAPI returns the API of the service: its operations, the interceptors
+// that trace them and authorize their callers, and the translation of the
+// errors of the database.
 func newAPI(svc *service.Service, logger *slog.Logger) *tyr.API {
 	api := tyr.New(tyr.WithLogger(logger))
-	api.Use(auth.Interceptor)
+	// First, so that its spans cover the others.
+	api.Use(oteltyr.Interceptor(), auth.Interceptor)
 	api.MapError(pgerr.Map)
 
-	// The contract has the names and the routes; who may call what is the
-	// server's business. Every operation needs a caller.
-	ops := api.Group(auth.Require())
+	// The contract has the names and the routes; who may call what, and
+	// for how long, is the server's business. Every operation needs a
+	// caller and has 5 seconds, within the WriteTimeout of the server, and
+	// may find the database unavailable.
+	ops := api.Group(auth.Require(), tyr.Timeout(5*time.Second), tyr.Errors(tyr.KindUnavailable))
 	ops.Implement(contract.CreateProject, svc.CreateProject)
 	ops.Implement(contract.GetProject, svc.GetProject)
 	ops.Implement(contract.ListProjects, svc.ListProjects)
@@ -147,24 +171,82 @@ func newAPI(svc *service.Service, logger *slog.Logger) *tyr.API {
 	return api
 }
 
-// newHandler returns the HTTP handler of the service: the operations of api
-// over REST and JSON-RPC, and their documents, behind the middleware that
-// authenticates tokens signed with key.
-func newHandler(api *tyr.API, key []byte, logger *slog.Logger) http.Handler {
+// newServer returns the HTTP server of the service: the operations of api
+// and their documents, the middleware around them, which authenticates
+// tokens signed with key, and the probes past it, with the timeouts of a
+// server that faces the internet. The pages of origins may call the
+// service from browsers.
+func newServer(addr string, api *tyr.API, key []byte, origins []string, ready *health.Readiness, logger *slog.Logger) *http.Server {
 	mux := http.NewServeMux()
 	// The document tells of the same challenge that REST sends with 401.
 	routes := rest.Mount(mux, api, rest.Challenge(`Bearer realm="tasks"`))
 	mux.Handle("GET /openapi.json", routes.OpenAPI(info))
 	mux.Handle("POST /rpc", jsonrpc.Handler(api, jsonrpc.Discover(info)))
 
-	// The 404 and 405 of the mux are problems, as the errors of operations
-	// are.
-	return middleware.Chain(rest.ProblemHandler(mux), // first = outermost
+	cors := middleware.CORS{
+		Origins: origins,
+		// The resource that a create makes, and the ID of a request to
+		// report.
+		Expose: []string{"Location", "X-Request-ID"},
+		MaxAge: time.Hour,
+	}
+	// No protection against cross-site requests: the service reads its
+	// callers from the header Authorization, which a browser doesn't add
+	// to a request by itself, as it does cookies, so a page of another
+	// site can't call it on its user's behalf.
+
+	// The probes go past the middleware: the balancers call them every few
+	// seconds, and the access log would drown in their records.
+	root := http.NewServeMux()
+	root.Handle("GET /health/live", health.Live())
+	root.Handle("GET /health/ready", ready)
+	root.Handle("/", oteltyr.Handler(middleware.Chain(rest.ProblemHandler(mux), // first = outermost
 		middleware.RequestID(),
 		middleware.Logger(logger),
+		// It answers preflight requests before the mux, which would
+		// answer them with 405, and Recover keeps its headers on a 500.
+		cors.Handler,
 		middleware.Recover(logger),
 		// It only finds out who calls: the interceptor of auth answers
 		// the calls that need a caller and have none.
 		auth.Authenticate(key),
-	)
+	)))
+
+	return &http.Server{
+		Addr:              addr,
+		Handler:           root,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       time.Minute,
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	}
+}
+
+// serve serves srv on ln until ctx is done, then shuts srv down
+// gracefully. First it drains: ready fails, and srv serves on for drain,
+// while the balancers take the traffic away, closing connections after
+// their responses, so that clients reconnect elsewhere. Then srv stops
+// accepting connections, and serve waits up to 10 seconds for the requests
+// in flight.
+func serve(ctx context.Context, srv *http.Server, ln net.Listener, ready *health.Readiness, drain time.Duration) error {
+	served := make(chan error, 1)
+	go func() { served <- srv.Serve(ln) }()
+	select {
+	case err := <-served:
+		return err
+	case <-ctx.Done():
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), drain+10*time.Second)
+	defer cancel()
+	srv.SetKeepAlivesEnabled(false)
+	ready.Drain(ctx, drain)
+	if err := srv.Shutdown(ctx); err != nil {
+		return err
+	}
+	if err := <-served; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
