@@ -4,8 +4,11 @@
 // of the service show. The compiler checks both sides against it, the
 // examples too:
 //
-//	tasks := jsonrpc.NewClient("http://tasks.internal/rpc", hc) // hc sends the token
-//	page, err := tasks.Call(ctx, contract.ListTasks, contract.ListTasksReq{ProjectID: id, Status: "todo"})
+//	tasks := jsonrpc.NewClient("http://tasks.internal/rpc", hc, jsonrpc.Headers(func(ctx context.Context, h http.Header) error {
+//		h.Set("Authorization", "Bearer "+token)
+//		return nil
+//	}))
+//	page, err := tasks.Call(ctx, contract.ListTasks, contract.ListTasksReq{ProjectID: id, Status: contract.StatusTodo})
 //
 // It imports tyr and rest, for the routes of the operations, and none of
 // the packages of the server. Who may call what is the server's business:
@@ -90,7 +93,7 @@ var (
 		tyr.Description("The fields of the request change those of the task, and the fields it leaves out keep their values."),
 		tyr.Tags("tasks"),
 		tyr.Errors(tyr.KindNotFound),
-	).Example("done", UpdateTaskReq{ID: logo.ID, Status: new("done")}, logoDone)
+	).Example("done", UpdateTaskReq{ID: logo.ID, Status: new(StatusDone)}, logoDone)
 
 	DeleteTask = tyr.Define[TaskReq, struct{}]("tasks.delete",
 		rest.Route("DELETE /tasks/{id}"),

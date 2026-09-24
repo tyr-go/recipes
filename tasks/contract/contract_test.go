@@ -43,7 +43,7 @@ func TestUpdateTaskReqValidate(t *testing.T) {
 	due := time.Date(2026, 10, 1, 18, 0, 0, 0, time.UTC)
 	for _, req := range []contract.UpdateTaskReq{
 		{Title: new("Draw a logo")},
-		{Status: new("done")},
+		{Status: new(contract.StatusDone)},
 		{DueAt: &due},
 	} {
 		if err := req.Validate(); err != nil {

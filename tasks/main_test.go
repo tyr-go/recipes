@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"io"
@@ -269,24 +270,15 @@ func TestAuthorization(t *testing.T) {
 	}
 }
 
-// bearer is a transport that sends a token with each request, as a client
-// of the service does.
-type bearer struct {
-	token string
-	next  http.RoundTripper
-}
-
-func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
-	r = r.Clone(r.Context())
-	r.Header.Set("Authorization", "Bearer "+b.token)
-	return b.next.RoundTrip(r)
-}
-
 func TestJSONRPC(t *testing.T) {
 	t.Parallel()
 	srv := start(t)
+	// The client sends the token of its caller with each call.
 	token := auth.NewToken(testKey, auth.Caller{ID: "alice"}, time.Hour)
-	tasks := jsonrpc.NewClient(server+"/rpc", &http.Client{Transport: bearer{token, srv.Transport}})
+	tasks := jsonrpc.NewClient(server+"/rpc", srv, jsonrpc.Headers(func(ctx context.Context, h http.Header) error {
+		h.Set("Authorization", "Bearer "+token)
+		return nil
+	}))
 	ctx := t.Context()
 
 	// The same operations, with the types of the contract.
@@ -298,7 +290,7 @@ func TestJSONRPC(t *testing.T) {
 	if err != nil || logo.Number != 1 || logo.Location != "" {
 		t.Fatalf("CreateTask = %+v, %v; want number 1, without the Location of REST", logo, err)
 	}
-	done, err := tasks.Call(ctx, contract.UpdateTask, contract.UpdateTaskReq{ID: logo.ID, Status: new("done")})
+	done, err := tasks.Call(ctx, contract.UpdateTask, contract.UpdateTaskReq{ID: logo.ID, Status: new(contract.StatusDone)})
 	if err != nil || done.Status != "done" {
 		t.Errorf("UpdateTask = %+v, %v", done, err)
 	}

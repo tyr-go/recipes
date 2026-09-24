@@ -149,7 +149,7 @@ func (s *Service) CreateTask(ctx context.Context, req contract.CreateTaskReq) (c
 			ProjectID: req.ProjectID,
 			Number:    n,
 			Title:     req.Title,
-			Status:    cmp.Or(req.Status, "todo"),
+			Status:    string(cmp.Or(req.Status, contract.StatusTodo)),
 			DueAt:     req.DueAt,
 		})
 		return err
@@ -198,7 +198,7 @@ func (s *Service) ListTasks(ctx context.Context, req contract.ListTasksReq) (con
 	}
 	var status *string
 	if req.Status != "" {
-		status = &req.Status
+		status = new(string(req.Status))
 	}
 	limit := cmp.Or(req.Limit, defaultLimit)
 	rows, err := s.db.ListTasks(ctx, store.ListTasksParams{ProjectID: req.ProjectID, Status: status, After: after, Max: int32(limit + 1)})
@@ -224,7 +224,7 @@ func (s *Service) UpdateTask(ctx context.Context, req contract.UpdateTaskReq) (c
 	if err != nil {
 		return contract.Task{}, err
 	}
-	t, err := s.db.UpdateTask(ctx, store.UpdateTaskParams{ID: req.ID, OwnerID: owner, Title: req.Title, Status: req.Status, DueAt: req.DueAt})
+	t, err := s.db.UpdateTask(ctx, store.UpdateTaskParams{ID: req.ID, OwnerID: owner, Title: req.Title, Status: (*string)(req.Status), DueAt: req.DueAt})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return contract.Task{}, taskNotFound(req.ID)
 	}
@@ -291,7 +291,7 @@ func taskOf(t store.Task) contract.Task {
 		ProjectID: t.ProjectID,
 		Number:    int(t.Number),
 		Title:     t.Title,
-		Status:    t.Status,
+		Status:    contract.Status(t.Status),
 		CreatedAt: t.CreatedAt.UTC(),
 		UpdatedAt: t.UpdatedAt.UTC(),
 	}

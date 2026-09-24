@@ -187,6 +187,8 @@ export interface components {
             /** @description The number of tasks done. */
             done: number;
         };
+        /** @enum {string} */
+        Status: "todo" | "doing" | "done";
         Task: {
             /**
              * Format: uuid
@@ -202,8 +204,8 @@ export interface components {
             number: number;
             /** @description What to do. */
             title: string;
-            /** @description todo, doing or done. */
-            status: string;
+            /** @description Where the task is. */
+            status: components["schemas"]["Status"];
             /**
              * Format: date-time
              * @description When the task is due, if it is.
@@ -235,8 +237,8 @@ export interface components {
             number: number;
             /** @description What to do. */
             title: string;
-            /** @description todo, doing or done. */
-            status: string;
+            /** @description Where the task is. */
+            status: components["schemas"]["Status"];
             /**
              * Format: date-time
              * @description When the task is due, if it is.
@@ -695,8 +697,8 @@ export interface operations {
     "tasks.list": {
         parameters: {
             query?: {
-                /** @description Only the tasks of the status, if set: todo, doing or done. */
-                status?: "todo" | "doing" | "done";
+                /** @description Only the tasks of the status, if set. */
+                status?: components["schemas"]["Status"];
                 /** @description How many tasks to return: 20 if not set. */
                 limit?: number;
                 /** @description The next_cursor of the page before, for the page after it. */
@@ -818,11 +820,8 @@ export interface operations {
                 "application/json": {
                     /** @description What to do. */
                     title: string;
-                    /**
-                     * @description todo, doing or done: todo if not set.
-                     * @enum {string}
-                     */
-                    status?: "todo" | "doing" | "done";
+                    /** @description Where the task is: todo if not set. */
+                    status?: components["schemas"]["Status"];
                     /**
                      * Format: date-time
                      * @description When the task is due.
@@ -1147,11 +1146,8 @@ export interface operations {
                 "application/json": {
                     /** @description What to do. */
                     title?: string | null;
-                    /**
-                     * @description todo, doing or done.
-                     * @enum {string|null}
-                     */
-                    status?: "todo" | "doing" | "done" | null;
+                    /** @description Where the task is. */
+                    status?: components["schemas"]["Status"] | null;
                     /**
                      * Format: date-time
                      * @description When the task is due.

@@ -8,8 +8,8 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
-	github.com/tyr-go/tyr v0.8.0
-	github.com/tyr-go/tyr/oteltyr v0.8.0
+	github.com/tyr-go/tyr v0.9.0
+	github.com/tyr-go/tyr/oteltyr v0.9.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0

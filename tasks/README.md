@@ -111,14 +111,17 @@ The migrations of [goose](https://github.com/pressly/goose) are in the binary, a
 
 ### Clients
 
-A client in Go calls the operations of the contract with the typed client of tyr, over JSON-RPC, as the tests do; a token goes in a header, by a transport of its own, such as `bearer` of [main_test.go](main_test.go):
+A client in Go calls the operations of the contract with the typed client of tyr, over JSON-RPC, as the tests do, and sends its token with each call by the option `jsonrpc.Headers`:
 
 ```go
-tasks := jsonrpc.NewClient("http://tasks.internal/rpc", &http.Client{Transport: bearer{token, http.DefaultTransport}})
-page, err := tasks.Call(ctx, contract.ListTasks, contract.ListTasksReq{ProjectID: id, Status: "todo"})
+tasks := jsonrpc.NewClient("http://tasks.internal/rpc", hc, jsonrpc.Headers(func(ctx context.Context, h http.Header) error {
+	h.Set("Authorization", "Bearer "+token)
+	return nil
+}))
+page, err := tasks.Call(ctx, contract.ListTasks, contract.ListTasksReq{ProjectID: id, Status: contract.StatusTodo})
 ```
 
-A client in TypeScript is generated from the OpenAPI document, in [api](api): [openapi-typescript](https://openapi-ts.dev) makes its types, and [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) calls the service with them. The errors are typed by status, so the kind of an error tells a client which one it is:
+A client in TypeScript is generated from the OpenAPI document, in [api](api): [openapi-typescript](https://openapi-ts.dev) makes its types, and [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) calls the service with them. The status of a task is an enum, `contract.Status`, so the client gets a union, `"todo" | "doing" | "done"`, and the errors are typed by status, so the kind of an error tells a client which one it is:
 
 ```ts
 const { data, error } = await client.POST("/projects", { body: { key, name } });

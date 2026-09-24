@@ -917,14 +917,9 @@
           {
             "name": "status",
             "in": "query",
-            "description": "Only the tasks of the status, if set: todo, doing or done.",
+            "description": "Only the tasks of the status, if set.",
             "schema": {
-              "type": "string",
-              "enum": [
-                "todo",
-                "doing",
-                "done"
-              ]
+              "$ref": "#/components/schemas/Status"
             },
             "examples": {
               "to do": {
@@ -1187,12 +1182,11 @@
                     "maxLength": 200
                   },
                   "status": {
-                    "type": "string",
-                    "description": "todo, doing or done: todo if not set.",
-                    "enum": [
-                      "todo",
-                      "doing",
-                      "done"
+                    "description": "Where the task is: todo if not set.",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/Status"
+                      }
                     ]
                   },
                   "due_at": {
@@ -1880,16 +1874,14 @@
                     "maxLength": 200
                   },
                   "status": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "description": "todo, doing or done.",
-                    "enum": [
-                      "todo",
-                      "doing",
-                      "done",
-                      null
+                    "description": "Where the task is.",
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/Status"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "due_at": {
@@ -2481,6 +2473,14 @@
           "done"
         ]
       },
+      "Status": {
+        "type": "string",
+        "enum": [
+          "todo",
+          "doing",
+          "done"
+        ]
+      },
       "Task": {
         "type": "object",
         "properties": {
@@ -2503,8 +2503,12 @@
             "description": "What to do."
           },
           "status": {
-            "type": "string",
-            "description": "todo, doing or done."
+            "description": "Where the task is.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Status"
+              }
+            ]
           },
           "due_at": {
             "type": "string",
@@ -2554,8 +2558,12 @@
             "description": "What to do."
           },
           "status": {
-            "type": "string",
-            "description": "todo, doing or done."
+            "description": "Where the task is.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Status"
+              }
+            ]
           },
           "due_at": {
             "type": "string",

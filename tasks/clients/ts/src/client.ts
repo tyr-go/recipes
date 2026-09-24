@@ -7,7 +7,7 @@ import type { components, paths } from "./schema";
 export type Project = components["schemas"]["Project"];
 export type Task = components["schemas"]["Task"];
 export type Problem = components["schemas"]["Problem"];
-export type Status = NonNullable<paths["/projects/{project_id}/tasks"]["get"]["parameters"]["query"]>["status"];
+export type Status = components["schemas"]["Status"];
 
 /** A client of the service at baseUrl, which calls it with a token. */
 export function tasksClient(baseUrl: string, token: string): Client<paths> {

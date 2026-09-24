@@ -52,10 +52,10 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
-github.com/tyr-go/tyr v0.8.0 h1:iPNzlG4lc4yOgv2ehWoNddWLTji+DookQol7RZU1MGM=
-github.com/tyr-go/tyr v0.8.0/go.mod h1:zJytyOtIkEDUkSLUCYFrR7WjtNcnj28Q08/nVs7v33Q=
-github.com/tyr-go/tyr/oteltyr v0.8.0 h1:B3IpO6fbRvGhqOJ6gJiB2J4Ys/eagtBzXUtF5gSR7+g=
-github.com/tyr-go/tyr/oteltyr v0.8.0/go.mod h1:BE7YDbD1B0KvWwhfR3mBdUhfqS9U/kY7fX6psjBmcDs=
+github.com/tyr-go/tyr v0.9.0 h1:mOhkRCoC5V5X3wd/UNS1iw5/zGpZMx9PKuWwPjcULTk=
+github.com/tyr-go/tyr v0.9.0/go.mod h1:zJytyOtIkEDUkSLUCYFrR7WjtNcnj28Q08/nVs7v33Q=
+github.com/tyr-go/tyr/oteltyr v0.9.0 h1:wHuvToLWGSnnPn0WY1YvFUhpz0t/H63cmRD4bMksvWs=
+github.com/tyr-go/tyr/oteltyr v0.9.0/go.mod h1:HwLn9fUS81v0lK69uudGxhV/jhZeNjFV99A0AoK38bU=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 h1:3g7B90UzBltIDKq1/5mrTGxTnOFDV0ICOhLoxiZ8jlg=
