@@ -1,37 +1,94 @@
 # tasks
 
-A service of projects and tasks on PostgreSQL, built with [tyr](https://github.com/tyr-go/tyr). This first part is its store: the schema, the queries and the errors of the database. The operations come next.
+A service of projects and their tasks on PostgreSQL, built with [tyr](https://github.com/tyr-go/tyr): one contract served over REST and JSON-RPC, and called by a typed client. Its callers authenticate with JSON Web Tokens and see their own projects only.
 
-## Test it
+## Run it
 
-The tests of the database run on a real PostgreSQL, 17 or later, which `DATABASE_URL` names. Each test gets a database of its own, a copy of a template that has the migrations, so they run in parallel:
+It needs PostgreSQL 17 or later, and a key of 32 bytes or more that signs its tokens:
 
 ```sh
 docker run --rm -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:17
-DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable' go test ./...
+export DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
+export JWT_SECRET=$(openssl rand -hex 32)
+go run . -migrate
 ```
 
-Without `DATABASE_URL`, those tests skip. CI sets `REQUIRE_DB=1`, which makes them fail instead, so that a missing database can't pass for a green run.
+`-migrate` applies the migrations that the database lacks before serving. In another terminal, with the same `JWT_SECRET`, the command `token` issues a token, as the service's identity provider would:
 
-## The store
+```sh
+TOKEN=$(go run ./cmd/token -sub alice)
+curl -i localhost:8080/projects -H "Authorization: Bearer $TOKEN" \
+	-H 'Content-Type: application/json' -d '{"key":"WEB","name":"Website"}'
+curl -i localhost:8080/rpc -H "Authorization: Bearer $TOKEN" \
+	-H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"projects.list","id":1}'
+```
+
+It describes itself at `/openapi.json`, and to `rpc.discover` over JSON-RPC.
+
+## Operations
+
+| Operation | REST | Errors of its own |
+|---|---|---|
+| `projects.create` | `POST /projects`: 201 with a `Location` | `already_exists`: the caller has a project of the key |
+| `projects.get` | `GET /projects/{id}` | `not_found` |
+| `projects.list` | `GET /projects?limit=&cursor=` | |
+| `projects.delete` | `DELETE /projects/{id}`: 204 | `not_found`; `failed_precondition`: the project has tasks |
+| `tasks.create` | `POST /projects/{project_id}/tasks`: 201 with a `Location` | `not_found` |
+| `tasks.get` | `GET /tasks/{id}` | `not_found` |
+| `tasks.list` | `GET /projects/{project_id}/tasks?status=&limit=&cursor=` | `not_found` |
+| `tasks.update` | `PATCH /tasks/{id}` | `not_found` |
+| `tasks.delete` | `DELETE /tasks/{id}`: 204 | `not_found` |
+| `admin.stats` | `GET /admin/stats` | |
+
+JSON-RPC serves the same operations at `POST /rpc`, by their names. Every operation needs a token, or it fails with `unauthenticated`, and `admin.stats` a caller with the role `admin`, or it fails with `permission_denied`. A request that fails its checks gets `invalid_argument`, with a violation per field.
+
+## How it's built
 
 | Where | What |
 |---|---|
-| [store/migrations](store/migrations) | The schema, in migrations of [goose](https://github.com/pressly/goose): a file per version, with the statements that apply it and those that undo it |
-| [store/queries](store/queries) | The queries, in SQL |
-| [store](store) | The Go code that [sqlc](https://sqlc.dev) generates from both: a method per query, with the types of its rows and parameters; `DB` runs them one by one or in a transaction, `InTx`, and `Migrate` applies the migrations the database lacks |
-| [pgerr](pgerr) | `pgerr.Map`, which translates the errors of PostgreSQL into kinds of tyr, for `api.MapError` |
+| [contract](contract) | The operations, with their requests, results and documentation: the contract of the server and its clients |
+| [service](service) | The handlers: a plain function per operation, of a request, that returns a result |
+| [auth](auth) | Tokens: the middleware that finds out who calls, the interceptor that lets them call what they may, and the tokens of `cmd/token` |
+| [store](store) | The schema, in migrations, and the queries, in SQL, from which [sqlc](https://sqlc.dev) generates the Go code on pgx |
+| [pgerr](pgerr) | The errors of PostgreSQL as kinds of tyr |
+| [main.go](main.go) | The API: the operations, their groups, the interceptor and the translation of errors; the middleware and the server |
+| [cmd/token](cmd/token) | A token for development |
 | [internal/dbtest](internal/dbtest) | A database of its own for each test |
 
-After a change to the migrations or the queries, run `sqlc generate` (sqlc 1.31) and commit the code. CI checks that it is up to date with `sqlc diff`.
+### Authentication and authorization
 
-The migrations are in the binary, and `Migrate` takes an advisory lock of PostgreSQL, so that instances that start at once apply each migration once.
+A token is signed with HS256 by `JWT_SECRET`, and its claims are the id of the caller, `sub`, its roles and when it expires, `exp`. The middleware `auth.Authenticate` only finds out who calls: a request with a valid token goes on with its caller in the context, and one without goes on without. It never answers itself. The interceptor `auth.Interceptor` decides, for the operations that the option `auth.Require` marks, over REST and JSON-RPC alike, and says what's wrong, such as an expired token:
 
-Ids are UUIDv7s of the package `uuid` of Go 1.27: they grow with time, so the newest rows come first by id, and a JavaScript client reads them as strings, without the loss of precision of 64-bit numbers.
+```go
+ops := api.Group(auth.Require())          // every operation needs a caller
+admin := ops.Group(auth.Require("admin")) // admin.stats one with the role admin
+```
+
+A caller owns the projects it creates and their tasks. Every query has the owner in its `WHERE`, so the projects of others are as good as missing: not found, rather than forbidden, which would tell they exist.
+
+### Pages
+
+The lists are newest first, a page at a time: 20 items, or `limit`, up to 100. A page that isn't the last has a `next_cursor`, which the request of the next page sends as its `cursor`. The cursor is the id of the last item of the page, and the next page is the items after it, by `WHERE id < $cursor ORDER BY id DESC`, which an index serves however deep the page. Ids are UUIDv7s of the package `uuid` of Go 1.27, which grow with time, and a JavaScript client reads them as strings, without the loss of precision of 64-bit numbers.
+
+### Transactions
+
+`store.DB.InTx` runs queries in a transaction. A task gets the next number of its project from an update of the project, which locks its row until the transaction ends: tasks created at once get numbers one after another, and a task that fails to be created gives its number back.
+
+```go
+err = s.db.InTx(ctx, func(q *store.Queries) error {
+	n, err := q.NextTaskNumber(ctx, store.NextTaskNumberParams{ID: req.ProjectID, OwnerID: owner})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return projectNotFound(req.ProjectID)
+	}
+	...
+	task, err = q.CreateTask(ctx, store.CreateTaskParams{ID: uuid.NewV7(), ProjectID: req.ProjectID, Number: n, ...})
+	return err
+})
+```
 
 ### Errors of the database
 
-A service translates the errors it expects itself, with messages that name what they were about, such as a project that isn't found. `pgerr.Map` translates the rest:
+A handler translates the errors it expects itself, with a message that says what it's about, such as a project that isn't found, and returns the others as they are. `pgerr.Map`, which `api.MapError` gets, translates those of the database:
 
 | Error | Kind |
 |---|---|
@@ -44,3 +101,17 @@ A service translates the errors it expects itself, with messages that name what 
 | a failure to connect | `unavailable` |
 
 It leaves other errors to tyr: an error of the context of the call keeps its kind, `deadline_exceeded` or `canceled`, and the rest are internal errors, which the client sees without their details.
+
+### The schema and the queries
+
+The migrations of [goose](https://github.com/pressly/goose) are in the binary, and `store.Migrate` takes an advisory lock of PostgreSQL, so that instances that start at once apply each migration once. After a change to the migrations or the queries, run `sqlc generate` (sqlc 1.31) and commit the code; CI checks that it is up to date with `sqlc diff`.
+
+## Test it
+
+The tests run on a real PostgreSQL, which `DATABASE_URL` names. Each test gets a database of its own, a copy of a template that has the migrations, so they run in parallel:
+
+```sh
+DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable' go test ./...
+```
+
+Without `DATABASE_URL`, the tests of the database skip. CI sets `REQUIRE_DB=1`, which makes them fail instead, so that a missing database can't pass for a green run. The tests of the service go through its whole HTTP handler, over REST and over JSON-RPC with the typed client of the contract.
